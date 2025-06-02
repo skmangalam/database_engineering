@@ -1,4 +1,3 @@
-**Clustered Index, Heap, Redis vs DB - Deep System Notes**
 
 ---
 
@@ -17,6 +16,13 @@
 * Table is stored as unordered heap pages.
 * All indexes are non-clustered and point to heap using TIDs (Tuple IDs).
 * Index-only scan optimization only works if visibility map marks page as "all-visible".
+
+**Heap Files and Pages:**
+
+* A PostgreSQL heap table is made of multiple 8KB fixed-size pages.
+* Each page contains multiple tuples (rows), but the number of rows depends on row size (not fixed).
+* Row location is identified by a CTID = (page number, tuple offset).
+* Visibility map is used to determine if a page is fully visible (helps avoid heap fetch in index-only scan).
 
 ---
 
@@ -39,6 +45,7 @@ Trade-offs of clustered index:
 * Works **only if** all queried columns exist in index.
 * PostgreSQL uses visibility map to avoid heap lookup.
 * If page not marked "all-visible" → heap access still required.
+* Visibility map is updated by autovacuum or manual VACUUM.
 
 ---
 
@@ -47,6 +54,7 @@ Trade-offs of clustered index:
 * Heap is made of 8KB pages.
 * Each row has CTID = (page#, row#) to locate tuple.
 * You can query rows by CTID directly (low-level access).
+* Use `pageinspect` extension in PostgreSQL to read raw page contents.
 
 ---
 
