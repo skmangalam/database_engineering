@@ -7,7 +7,7 @@
 
 * Physically stores table rows in the order of the index.
 * Leaf nodes of the B-tree **contain full rows**.
-* No separate heap storage. The index *is* the table.
+* No separate heap storage. The index *is* the table. ✅ This applies in MySQL/InnoDB.
 * Common in MySQL (InnoDB) and SQL Server.
 * Only one clustered index allowed because only one physical sort order is possible.
 
@@ -16,6 +16,7 @@
 * Table is stored as unordered heap pages.
 * All indexes are non-clustered and point to heap using TIDs (Tuple IDs).
 * Index-only scan optimization only works if visibility map marks page as "all-visible".
+* Even primary keys in PostgreSQL do not cluster the table — they just create unique indexes. Heap still remains.
 
 **Heap Files and Pages:**
 
@@ -58,6 +59,61 @@ Trade-offs of clustered index:
 
 ---
 
+### 📦 Buffered Cache vs Disk
+
+* PostgreSQL loads pages (heap or index) into shared buffer cache (RAM).
+* All locks, MVCC checks, and modifications happen on these in-memory pages.
+* Pages marked as "dirty" are later flushed to disk by the checkpointer.
+* Durability is guaranteed by flushing **WAL** before dirty page is flushed.
+* WAL logs **all changes** (even uncommitted) so that recovery can decide what to replay.
+
+---
+
+### 🔐 WAL & Buffer Flush
+
+* WAL = write-ahead log; stores every change for durability.
+* Dirty page = a page that was modified in memory but not yet flushed to disk.
+* WAL is flushed to disk before a transaction is acknowledged as committed.
+* Page flush = structural consistency, may contain uncommitted rows.
+* On crash, WAL is replayed to bring database to last committed consistent state.
+
+---
+
+### 🧠 Clustered Index Internals
+
+* In a real clustered index (like InnoDB):
+
+    * Data is stored directly in B-tree leaf nodes.
+    * There is **no separate heap**.
+    * Index leaf nodes = full rows
+* In PostgreSQL:
+
+    * Even if you run `CLUSTER`, heap remains.
+    * Postgres just rewrites the heap to match the index once — not automatically maintained.
+
+---
+
+### 💾 Where is Data Stored?
+
+| Engine       | Clustered Index = Table? | Separate Heap? |
+| ------------ | ------------------------ | -------------- |
+| PostgreSQL   | ❌ No                     | ✅ Yes          |
+| MySQL InnoDB | ✅ Yes                    | ❌ No           |
+
+Only PostgreSQL allows separate heap with non-clustered index model.
+
+---
+
+### 📚 Index Storage in Memory vs Disk
+
+* B-tree indexes are always stored on **disk**.
+* But during query execution, needed pages are loaded into **shared buffer cache**.
+* This includes root → internal → leaf pages.
+* Only recently accessed index pages live in memory.
+* Buffer cache is managed by LRU or similar eviction policy.
+
+---
+
 ### 🧠 Logical vs Physical Equality (DB vs Redis)
 
 **PostgreSQL/MySQL (DB):**
@@ -90,7 +146,7 @@ Examples:
 
 You optimize for these using:
 
-* Indexes (B-tree, covering, partial)
+* Indexes (B-tree, covering, partial, composite)
 * Partitioning
 * Materialized views
 * Denormalized projections (carefully)
